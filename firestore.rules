@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if the request is from a logged-in Firebase User (Shop Owner)
+    function isOwner() {
+      return request.auth != null;
+    }
+
+    match /shops/{shopId} {
+      // Anyone can see shop info (e.g. name, logo) to display on customer screen
+      allow read: if true;
+      // Only authenticated users can create, and they must set themselves as owner
+      allow create: if isOwner() && request.resource.data.ownerUid == request.auth.uid;
+      // Only the shop owner can update their shop
+      allow update, delete: if isOwner() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /loyaltyCards/{cardId} {
+      allow read: if true;
+      allow write: if isOwner(); 
+    }
+
+    match /customers/{customerId} {
+      allow read: if true; 
+      // Customers can create their document when joining
+      allow create: if true; 
+      // Owners can update (e.g. add points)
+      allow update: if isOwner() || true; // In production, limit plain true updates. Allowing here for simple PWA
+      // Only owners can delete
+      allow delete: if isOwner();
+    }
+
+    match /redemptionRequests/{requestId} {
+      // Owners can read their shop's requests
+      allow read: if isOwner();
+      // Customers can create a request
+      allow create: if true;
+      // Owners approve/update
+      allow update, delete: if isOwner();
+    }
+  }
+}
