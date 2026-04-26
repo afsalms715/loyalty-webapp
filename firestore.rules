@@ -21,6 +21,11 @@ service cloud.firestore {
       allow write: if isOwner(); 
     }
 
+    match /loyaltyPrograms/{programId} {
+      allow read: if true;
+      allow write: if isOwner(); 
+    }
+
     match /customers/{customerId} {
       allow read: if true; 
       // Customers can create their document when joining
