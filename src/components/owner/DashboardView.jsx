@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import React, { useState, useEffect, useRef } from 'react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { searchCustomerByIdOrName, addPointToCustomer, approveRedemption, createNewProgramVersion } from '../../services/ownerService';
 import { Search, PlusCircle, Gift, Check, Clock, Settings, Coffee, Star, Utensils, Scissors, Heart, ShoppingBag, Award } from 'lucide-react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -27,6 +29,8 @@ export default function DashboardView({ shop }) {
     rewardDescription: shop.cardData?.rewardDescription || 'Free Item',
     iconType: shop.cardData?.iconType || 'coffee'
   });
+  
+  const posterRef = useRef(null);
 
   useEffect(() => {
     const q = query(
@@ -85,6 +89,23 @@ export default function DashboardView({ shop }) {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!posterRef.current) return;
+    try {
+      const canvas = await html2canvas(posterRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${shop.name.replace(/\s+/g, '_')}_Loyalty_Poster.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to generate PDF: " + err.message);
+    }
+  };
+
   const joinUrl = `${window.location.origin}/join/${shop.shopId}`;
 
   return (
@@ -106,7 +127,7 @@ export default function DashboardView({ shop }) {
           
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center mb-6 w-full">
             <QRCodeSVG value={joinUrl} size={180} className="mb-4" />
-            <div className="w-full bg-gray-50 border border-gray-200 rounded-lg flex items-center overflow-hidden">
+            <div className="w-full bg-gray-50 border border-gray-200 rounded-lg flex items-center overflow-hidden mb-3">
                <input readOnly value={joinUrl} className="text-xs text-gray-500 bg-transparent flex-1 p-2 outline-none w-full truncate" />
                <button 
                  onClick={() => navigator.clipboard.writeText(joinUrl)} 
@@ -115,6 +136,12 @@ export default function DashboardView({ shop }) {
                  Copy
                </button>
             </div>
+            <button 
+              onClick={handleDownloadPDF}
+              className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              Download Poster (PDF)
+            </button>
           </div>
           
           <div className="bg-gray-50 rounded-lg p-4 w-full text-left">
@@ -255,6 +282,33 @@ export default function DashboardView({ shop }) {
           </div>
         </div>
       )}
+
+      {/* Hidden layout exactly formatted for A4 PDF extraction */}
+      <div style={{ position: 'fixed', left: '-2000px', top: 0, zIndex: -100 }}>
+        <div ref={posterRef} style={{ backgroundColor: '#ffffff', borderColor: '#4f46e5' }} className="w-[800px] h-[1131px] p-16 text-center flex flex-col items-center justify-center font-sans border-8 box-border">
+          <div className="flex flex-col items-center mb-12">
+            <Gift className="w-24 h-24 mb-6" style={{ color: '#4f46e5' }} />
+            <h1 style={{ color: '#111827' }} className="text-6xl font-black mb-4 leading-tight">{shop.name}</h1>
+            <h2 style={{ color: '#4f46e5' }} className="text-3xl font-bold uppercase tracking-widest">{shop.cardData?.title}</h2>
+          </div>
+          
+          <div style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }} className="p-12 rounded-3xl border-2 flex flex-col items-center mb-12 w-full max-w-xl mx-auto shadow-sm">
+             <QRCodeCanvas value={joinUrl} size={350} className="mb-10" />
+             <p style={{ color: '#1f2937' }} className="text-4xl font-extrabold">Scan to Join!</p>
+             <p style={{ color: '#6b7280' }} className="text-xl font-medium mt-3">Open your camera to unlock rewards</p>
+          </div>
+          
+          <div style={{ backgroundColor: '#eef2ff', borderColor: '#e0e7ff' }} className="flex flex-col items-center p-8 rounded-2xl w-full max-w-xl mx-auto border">
+             <span style={{ color: '#312e81' }} className="font-extrabold text-xl uppercase tracking-widest mb-2">The Reward</span>
+             <p style={{ color: '#4338ca' }} className="text-3xl font-black text-center leading-snug">
+               {shop.cardData?.rewardDescription}
+             </p>
+             <p style={{ color: '#6366f1', backgroundColor: '#ffffff' }} className="text-lg font-bold mt-4 px-4 py-1 rounded-full shadow-sm">
+               after {shop.cardData?.totalPoints} points
+             </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
