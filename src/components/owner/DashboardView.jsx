@@ -19,6 +19,7 @@ const ICONS = [
 
 export default function DashboardView({ shop }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [pointsToAdd, setPointsToAdd] = useState({});
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -58,10 +59,27 @@ export default function DashboardView({ shop }) {
   };
 
   const handleAddPoint = async (customerId, current, total) => {
-    if (!window.confirm("Add 1 point to this customer?")) return;
-    await addPointToCustomer(customerId, current, total);
+    let points = pointsToAdd[customerId];
+    if (points === undefined || points === '') {
+      points = 1;
+    } else {
+      points = parseInt(points);
+    }
+
+    if (isNaN(points) || points <= 0) {
+      alert("Points to add must be greater than 0");
+      return;
+    }
+    if (current + points > total) {
+      alert(`Cannot add ${points} points. Maximum allowed is ${total - current}.`);
+      return;
+    }
+    if (!window.confirm(`Add ${points} point(s) to this customer?`)) return;
+    
+    await addPointToCustomer(customerId, current, total, points);
     const results = await searchCustomerByIdOrName(shop.shopId, searchTerm);
     setCustomers(results);
+    setPointsToAdd(prev => ({ ...prev, [customerId]: 1 }));
   };
 
   const handleEditSubmit = async (e) => {
@@ -214,13 +232,27 @@ export default function DashboardView({ shop }) {
                     )}
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleAddPoint(c.id, c.currentPoints, c.targetPoints || shop.cardData?.totalPoints)}
-                  disabled={c.rewardAvailable}
-                  className="flex items-center bg-green-500 text-white px-5 py-3 rounded-lg font-semibold hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <PlusCircle className="mr-2 w-5 h-5" /> Add Point
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max={(c.targetPoints || shop.cardData?.totalPoints) - c.currentPoints}
+                    value={pointsToAdd[c.id] !== undefined ? pointsToAdd[c.id] : 1}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : parseInt(e.target.value);
+                      setPointsToAdd({ ...pointsToAdd, [c.id]: val });
+                    }}
+                    disabled={c.rewardAvailable}
+                    className="w-16 border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-center font-semibold bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button 
+                    onClick={() => handleAddPoint(c.id, c.currentPoints, c.targetPoints || shop.cardData?.totalPoints)}
+                    disabled={c.rewardAvailable || pointsToAdd[c.id] === '' || pointsToAdd[c.id] <= 0}
+                    className="flex items-center bg-green-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <PlusCircle className="mr-2 w-5 h-5" /> Add
+                  </button>
+                </div>
               </div>
             ))}
             

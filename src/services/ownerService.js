@@ -114,9 +114,9 @@ export const searchCustomerByIdOrName = async (shopId, searchTerm) => {
   );
 };
 
-export const addPointToCustomer = async (docId, currentPoints, totalPoints) => {
+export const addPointToCustomer = async (docId, currentPoints, totalPoints, pointsToAdd = 1) => {
   const ref = doc(db, 'customers', docId);
-  const newPoints = currentPoints + 1;
+  const newPoints = currentPoints + pointsToAdd;
   const isReward = newPoints >= totalPoints;
   await updateDoc(ref, {
     currentPoints: newPoints,
